@@ -4,6 +4,8 @@ from util import connect_db
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 from kneed import KneeLocator
+import matplotlib.pyplot as plt
+
 
 def get_sentences_from_db(host, user, password, database):
     """
@@ -16,6 +18,7 @@ def get_sentences_from_db(host, user, password, database):
     cursor.close()
     conn.close()
     return sentences
+
 
 def compute_similarity_matrix(sentences):
     """
@@ -43,50 +46,72 @@ def compute_similarity_matrix(sentences):
 def plot_similarity_matrix(similarity_matrix):
     # Print the similarity matrix as a table
     for row in similarity_matrix:
-        print("\t".join([f"{value:.2f}" if isinstance(value, float) else str(value) for value in row]))
+        print("\t".join([f"{value:.2f}" if isinstance(
+            value, float) else str(value) for value in row]))
 
 
 def optimal_eps_min_samples(similarity_matrix):
-    nbrs = NearestNeighbors(n_neighbors = 5).fit(similarity_matrix)
+    nbrs = NearestNeighbors(n_neighbors=5).fit(similarity_matrix)
     neigh_dist, neigh_ind = nbrs.kneighbors(similarity_matrix)
-    sort_neigh_dist = np.sort(neigh_dist, axis = 0)
+    sort_neigh_dist = np.sort(neigh_dist, axis=0)
     k_dist = sort_neigh_dist[:, 4]
-    kneedle = KneeLocator(x = range(1, len(neigh_dist)+1), y = k_dist, S = 1.0, 
-                      curve = "concave", direction = "increasing", online=True)
-
+    kneedle = KneeLocator(x=range(1, len(neigh_dist)+1), y=k_dist, S=1.0,
+                          curve="concave", direction="increasing", online=True)
 
     print(kneedle.knee_y)
     print(kneedle.knee)
+    return kneedle.knee_y, kneedle.knee
+
 
 def find_clusters(similarity_matrix, eps, min_samples):
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric='precomputed')
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed")
     dbscan.fit(similarity_matrix)
     labels = dbscan.labels_
+
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
+    print("Estimated number of clusters: %d" % n_clusters_)
+    print("Estimated number of noise points: %d" % n_noise_)
+    for i in range(n_clusters_):
+        print("Cluster", i, "contains", list(labels).count(i), "points")
+
     clusters = {}
     for i, label in enumerate(labels):
         if label not in clusters:
             clusters[label] = []
         clusters[label].append(i)
-    return list(clusters.values())
+
+    return labels
+
+
+def plot_clusters(similarity_matrix, labels):
+    plt.scatter(similarity_matrix[:, 0],
+                similarity_matrix[:, 1], c=labels, cmap='viridis')
+    plt.show()
 
 
 def main():
-     
-    sentences = get_sentences_from_db("localhost", "root", "", "deteksi_trending_topik")
-    # sentences = [
-    #     "lonjakan kasus corona indonesia",
-    #     "vaksinasi indonesia astrazeneca",
-    #     "swab antigen vaksin sinovac",
-    #     "vaksin corona serentak nasional",
-    #     "isolasi mandiri masyarakat terpapar covid"
-    # ]
+
+    # sentences = get_sentences_from_db("localhost", "root", "", "deteksi_trending_topik")
+    sentences = [
+        "lonjakan kasus corona indonesia",
+        "vaksinasi indonesia astrazeneca",
+        "swab antigen vaksin sinovac",
+        "vaksin corona serentak nasional",
+        "isolasi mandiri masyarakat terpapar covid"
+    ]
 
     similarity_matrix = compute_similarity_matrix(sentences)
     similarity_matrix = np.array(similarity_matrix)
-    print(similarity_matrix)
+    # print(similarity_matrix)
     plot_similarity_matrix(similarity_matrix)
-    optimal_eps_min_samples(similarity_matrix)
-    clusters = find_clusters(similarity_matrix, eps=0.5, min_samples=2)
+    eps, min_samples = optimal_eps_min_samples(similarity_matrix)
+
+    clusters = find_clusters(
+        similarity_matrix, eps, min_samples)
+    # clusters = cluster_kmeans(similarity_matrix)
+    plot_clusters(similarity_matrix, clusters)
+
     print("Clusters:", clusters)
 
 

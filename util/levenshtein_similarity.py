@@ -14,17 +14,19 @@ def levenshtein_similarity(s1, s2):
                 cost = 0
             else:
                 cost = 1
-            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] +
+                          1, d[i - 1][j - 1] + cost)
     distance = d[m][n]
     max_length = max(len(s1), len(s2))
     similarity = 1 - (distance / max_length)
     return similarity
+
 
 def main():
     s1 = "king"
     s2 = "kind"
     print(levenshtein_similarity(s1, s2))
 
+
 if __name__ == "__main__":
     main()
-    
